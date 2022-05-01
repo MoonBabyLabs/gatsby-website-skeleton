@@ -98,6 +98,7 @@ Resources:
     Properties:
       DomainName: !Ref Domain
       AppId: !GetAtt AmplifyApp.AppId
+      EnableAutoSubDomain: true
       SubDomainSettings:
         - Prefix: main
           BranchName: !GetAtt AmplifyBranch.BranchName
