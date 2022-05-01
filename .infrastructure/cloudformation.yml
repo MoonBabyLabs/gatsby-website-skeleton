@@ -68,6 +68,9 @@ Resources:
       Repository: !Ref Repository
       OauthToken: !Ref AccessToken
       Description: MoonBaby Labs Site Built from Skeleton
+      AutoBranchCreationConfig:
+        EnableAutoBranchCreation: true
+        EnableAutoBuild: true
       EnvironmentVariables:
         - Name: GATSBY_STORYBLOK
           Value: !Ref StoryblokToken 
@@ -92,20 +95,58 @@ Resources:
       AppId: !GetAtt AmplifyApp.AppId
       Description: Main Branch
       EnableAutoBuild: true
+      EnablePullRequestPreview: true
+
+  AmplifyInternalReviewBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      BranchName: review/internal
+      AppId: !GetAtt AmplifyApp.AppId
+      Description: Internal Review Branch
+      EnableAutoBuild: true
+      EnablePullRequestPreview: true
+
+  AmplifyExternalReviewBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      BranchName: review/external
+      AppId: !GetAtt AmplifyApp.AppId
+      Description: Internal Review Branch
+      EnableAutoBuild: true
 
   AmplifyDomain:
     Type: AWS::Amplify::Domain
     Properties:
       DomainName: !Ref Domain
       AppId: !GetAtt AmplifyApp.AppId
-      EnableAutoSubDomain: true
+      EnableAutoSubDomain: false
       SubDomainSettings:
-        - Prefix: main
+        - Prefix: ''
           BranchName: !GetAtt AmplifyBranch.BranchName
+
+  AmplifyInternalReviewBranchDomain:
+    Type: AWS::Amplify::Domain
+    Properties:
+      DomainName: !Ref Domain
+      AppId: !GetAtt AmplifyApp.AppId
+      EnableAutoSubDomain: false
+      SubDomainSettings:
+        - Prefix: 'internal'
+          BranchName: !GetAtt AmplifyInternalReviewBranch.BranchName
+
+  AmplifyExternalReviewBranchDomain:
+    Type: AWS::Amplify::Domain
+    Properties:
+      DomainName: !Ref Domain
+      AppId: !GetAtt AmplifyApp.AppId
+      EnableAutoSubDomain: false
+      SubDomainSettings:
+        - Prefix: 'preview'
+          BranchName: !GetAtt AmplifyExternalReviewBranch.BranchName
 
 Outputs:
   DefaultDomain:
     Value: !GetAtt AmplifyApp.DefaultDomain
 
   MasterBranchUrl:
-    Value: !Join [ ".", [ !GetAtt AmplifyBranch.BranchName, !GetAtt AmplifyDomain.DomainName ]]
+    Value: !GetAtt AmplifyDomain.DomainName
