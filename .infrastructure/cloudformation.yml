@@ -1,0 +1,110 @@
+AWSTemplateFormatVersion: 2010-09-09
+
+Parameters:
+  Repository:
+    Type: String
+    Description: GitHub Repository URL
+    Default: '{{resolve:ssm:GITHUB_REPO:1}}'
+
+  Domain:
+    Type: String
+    Description: Domain name to host application
+    Default: '{{resolve:ssm:DOMAIN:1}}'
+
+  StoryblokToken:
+    Type: String
+    Description: Storyblok API token
+    Default: '{{resolve:secretsmanager:GATSBY_STORYBLOK}}'
+  
+  SiteName:
+    Type: String
+    Description: Name of site
+    Default: '{{resolve:ssm:SITE_NAME:1}}'
+
+  AccessToken:
+    Type: String
+    Description: Github access token
+    Default: '{{resolve:secretsmanager:ACCESS_TOKEN}}'
+
+  SSMPolicy:
+    Type: String
+    Description: 'ARN of the first IAM Managed Policy to add to the role'
+    Default: arn:aws:iam::aws:policy/AmazonSSMReadOnlyAccess
+
+  SecretsPolicy:
+    Type: String
+    Description: ARN of the Secrets read write policy
+    Default: arn:aws:iam::aws:policy/SecretsManagerReadWrite
+
+Resources:
+  AmplifyRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - amplify.amazonaws.com
+            Action:
+              - sts:AssumeRole
+      ManagedPolicyArns:
+        - !Ref SSMPolicy
+        - !Ref SecretsPolicy
+      Policies:
+        - PolicyName: Amplify
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action: "amplify:*"
+                Resource: "*"
+
+  AmplifyApp:
+    Type: "AWS::Amplify::App"
+    Properties:
+      Name: !Ref SiteName
+      Repository: !Ref Repository
+      OauthToken: !Ref AccessToken
+      Description: MoonBaby Labs Site Built from Skeleton
+      EnvironmentVariables:
+        - Name: GATSBY_STORYBLOK
+          Value: !Ref StoryblokToken 
+      BuildSpec: |-
+        version: 0.1
+        frontend:
+          phases:
+            build:
+              commands:
+                - npm i
+                - gatsby build
+          artifacts:
+            baseDirectory: public
+            files:
+              - '*'
+      IAMServiceRole: !GetAtt AmplifyRole.Arn
+
+  AmplifyBranch:
+    Type: AWS::Amplify::Branch
+    Properties:
+      BranchName: main
+      AppId: !GetAtt AmplifyApp.AppId
+      Description: Main Branch
+      EnableAutoBuild: true
+
+  AmplifyDomain:
+    Type: AWS::Amplify::Domain
+    Properties:
+      DomainName: !Ref Domain
+      AppId: !GetAtt AmplifyApp.AppId
+      SubDomainSettings:
+        - Prefix: main
+          BranchName: !GetAtt AmplifyBranch.BranchName
+
+Outputs:
+  DefaultDomain:
+    Value: !GetAtt AmplifyApp.DefaultDomain
+
+  MasterBranchUrl:
+    Value: !Join [ ".", [ !GetAtt AmplifyBranch.BranchName, !GetAtt AmplifyDomain.DomainName ]]
